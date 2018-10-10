@@ -8,10 +8,10 @@
         
     <Connections>
         <OleDbConnection Name="Source" CreateInProject="true" ConnectionString="Data Source=IMH-Server1;Initial Catalog=database1;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;"   />
-        <OleDbConnection Name="Stage" CreateInProject="true" ConnectionString="Data Source=Server2;Initial Catalog=StageDB;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;" />
-        <OleDbConnection Name="IDS" CreateInProject="true" ConnectionString="Data Source=Server3;Initial Catalog=IDSDB;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;" />
-        <OleDbConnection Name="DWMgr" CreateInProject="true" ConnectionString="Data Source=Server4;Initial Catalog=DWManagerDB;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;" />
-        <OleDbConnection Name="Meta" CreateInProject="true" ConnectionString="Data Source=Server5;Initial Catalog=Meta;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;" />
+        <OleDbConnection Name="Stage" CreateInProject="true" ConnectionString="Data Source=Server1;Initial Catalog=StageDB;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;" />
+        <OleDbConnection Name="IDS" CreateInProject="true" ConnectionString="Data Source=Server1;Initial Catalog=IDSDB;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;" />
+        <OleDbConnection Name="DWMgr" CreateInProject="true" ConnectionString="Data Source=Server1;Initial Catalog=DWManagerDB;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;" />
+        <OleDbConnection Name="Meta" CreateInProject="true" ConnectionString="Data Source=Server1;Initial Catalog=Meta;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;" />
     </Connections>
     <Packages>
         <# foreach (var table in StageDB.TableNodes) { 
@@ -42,7 +42,7 @@
                                         <Input OutputPathName="Start Job Logging.Output"></Input>
                                     </Inputs>
                                 </PrecedenceConstraints>
-                                <# string MetaDataConnectionString = @"Data Source=Server5;Initial Catalog=Meta;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;";#>
+                                <# string MetaDataConnectionString = @"Data Source=Server1;Initial Catalog=Meta;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;";#>
                                 <#DataTable  IDSTables = ExternalDataAccess.GetDataTable(MetaDataConnectionString, 
                                 "SELECT distinct [DestSchemaName] , [DestTableName], [SourceTableName] FROM [SourceToTargetMapping] WHERE  [SourceTableName] = '"+table+"';"); #>
                                 
