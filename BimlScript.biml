@@ -2,14 +2,14 @@
 <#@ import namespace="Varigence.Biml.CoreLowerer.SchemaManagement" #>
 <Biml xmlns="http://schemas.varigence.com/biml.xsd">
     
-    <# var conStage = SchemaManager.CreateConnectionNode("Stage", @"Data Source=C240-FSKMHR2\SQL2016;Initial Catalog=ETL_Stage;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;"); #>
+    <# var conStage = SchemaManager.CreateConnectionNode("Stage", @"Data Source=localhost;Initial Catalog=ETL_Stage;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;"); #>
     <# var StageDB = conStage.ImportDB("AdventureWorks","Address"); #>
     
     <Connections>
-        <OleDbConnection Name="Source" ConnectionString="Data Source=C240-FSKMHR2\SQL2016;Initial Catalog=AdventureWorks;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;"   />
-        <OleDbConnection Name="Stage" ConnectionString="Data Source=C240-FSKMHR2\SQL2016;Initial Catalog=ETL_Stage;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;" />
-        <OleDbConnection Name="DataVault" ConnectionString="Data Source=C240-FSKMHR2\SQL2016;Initial Catalog=ETL_DataVault;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;" />
-        <OleDbConnection Name="DW_Log" ConnectionString="Data Source=C240-FSKMHR2\SQL2016;Initial Catalog=ETL_Log;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;" />
+        <OleDbConnection Name="Source" ConnectionString="Data Source=localhost;Initial Catalog=AdventureWorks;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;"   />
+        <OleDbConnection Name="Stage" ConnectionString="Data Source=localhost;Initial Catalog=ETL_Stage;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;" />
+        <OleDbConnection Name="DataVault" ConnectionString="Data Source=localhost;Initial Catalog=ETL_DataVault;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;" />
+        <OleDbConnection Name="DW_Log" ConnectionString="Data Source=localhost;Initial Catalog=ETL_Log;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;" />
   </Connections>
       
     <Packages>
@@ -38,7 +38,7 @@
                                         <Input OutputPathName="Start Job Logging.Output"></Input>
                                     </Inputs>
                                 </PrecedenceConstraints>
-                                <# string MetaDataConnectionString = @"Data Source=C240-FSKMHR2\SQL2016;Initial Catalog=DataModel;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;";#>
+                                <# string MetaDataConnectionString = @"Data Source=localhost;Initial Catalog=DataModel;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;";#>
                                 <#DataTable  DataVaultTables = ExternalDataAccess.GetDataTable(MetaDataConnectionString, 
                                 "SELECT distinct [DestSchemaName] , [DestTableName], [SourceTableName] FROM [SourceToTarget] WHERE  [SourceTableName] = '"+table+"';"); #>
                                 
@@ -76,7 +76,7 @@
                                                                 <Lookup Name="Lookup <#=row[0]#>_<#=row[1]#>" OleDbConnectionName="DataVault" NoMatchBehavior="RedirectRowsToNoMatchOutput" >
                                                                     <InputPath OutputPathName="Multicast Transformation.MultOut<#=row[0]#>_<#=row[1]#>" ></InputPath>
                                                                     <DirectInput>EXEC LOOKUP.usp_Get_<#=row[0]#>_<#=row[1]#>;</DirectInput>
-                                                                        <#string metadatConnectionString = @"Data Source=C240-FSKMHR2\SQL2016;Initial Catalog=ETL_DataVault;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;"; #>
+                                                                        <#string metadatConnectionString = @"Data Source=localhost;Initial Catalog=ETL_DataVault;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;"; #>
                                                                         <#DataTable LookupSource = ExternalDataAccess.GetDataTable(metadatConnectionString,"EXEC LOOKUP.usp_Get_" + row[0] + "_" + row[1] + "; ");#>
                                                                             <Inputs>
                                                                                 <# foreach (var icol in LookupSource.Columns){ #>
