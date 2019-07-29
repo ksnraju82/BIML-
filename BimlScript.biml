@@ -1,89 +1,82 @@
-﻿<#@ template tier="1" #> 
 <#@ import namespace="System.Data"#> 
 <#@ import namespace="Varigence.Biml.CoreLowerer.SchemaManagement" #>
 <Biml xmlns="http://schemas.varigence.com/biml.xsd">
-    <# var conStage = SchemaManager.CreateConnectionNode("Stage", @"Data Source=Server1;Initial Catalog=AnalysisDB;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;"); #>
-    <# var includeSchemas = new List<string>{"SOURCE"};#>
-    <# var includeTables = new List<string>{"SourceTableName"};#>
-        
+    
+    <# var conStage = SchemaManager.CreateConnectionNode("Stage", @"Data Source=C240-FSKMHR2\SQL2016;Initial Catalog=ETL_Stage;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;"); #>
+    <# var StageDB = conStage.ImportDB("AdventureWorks","Address"); #>
+    
     <Connections>
-        <OleDbConnection Name="Source" CreateInProject="true" ConnectionString="Data Source=IMH-Server1;Initial Catalog=database1;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;"   />
-        <OleDbConnection Name="Stage" CreateInProject="true" ConnectionString="Data Source=Server1;Initial Catalog=StageDB;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;" />
-        <OleDbConnection Name="IDS" CreateInProject="true" ConnectionString="Data Source=Server1;Initial Catalog=IDSDB;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;" />
-        <OleDbConnection Name="DWMgr" CreateInProject="true" ConnectionString="Data Source=Server1;Initial Catalog=DWManagerDB;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;" />
-        <OleDbConnection Name="Meta" CreateInProject="true" ConnectionString="Data Source=Server1;Initial Catalog=Meta;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;" />
-    </Connections>
+        <OleDbConnection Name="Source" ConnectionString="Data Source=C240-FSKMHR2\SQL2016;Initial Catalog=AdventureWorks;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;"   />
+        <OleDbConnection Name="Stage" ConnectionString="Data Source=C240-FSKMHR2\SQL2016;Initial Catalog=ETL_Stage;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;" />
+        <OleDbConnection Name="DataVault" ConnectionString="Data Source=C240-FSKMHR2\SQL2016;Initial Catalog=ETL_DataVault;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;" />
+        <OleDbConnection Name="DW_Log" ConnectionString="Data Source=C240-FSKMHR2\SQL2016;Initial Catalog=ETL_Log;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;" />
+  </Connections>
+      
     <Packages>
         <# foreach (var table in StageDB.TableNodes) { 
-            string IDSSchema = string.Empty;
+            string DataVaultSchema = string.Empty;
          #>
-            <Package Name="01_SourceName_<#=table#>" ConstraintMode="Parallel" ProtectionLevel="DontSaveSensitive" >    
+        <Package Name="01_AdventureWorks_DataVault_<#=table#>" ConstraintMode="Parallel" ProtectionLevel="DontSaveSensitive" >    
                  <Variables>
-                        <Variable Name="vJobsInStage" DataType="Object" ></Variable>
-                        <Variable Name="vSourceSystem" DataType="String">SourceName_Stage</Variable>
-                        <Variable Name="vJobId" DataType="Int64"  >-1</Variable>
+                        
                         <Variable Name="vLookupCommandText" DataType="String" ></Variable> 
-                        <Variable Name="vSelectSQL" DataType="String" EvaluateAsExpression="true">&quot; EXEC [SourceName].[usp_Get_<#=table#>]  @JobID= &quot; + (DT_STR, 50, 1252 ) @[User::vJobId] + &quot;; &quot;</Variable>
+                        <Variable Name="vSelectSQL" DataType="String" EvaluateAsExpression="true">&quot; EXEC [AdventureWorks].[usp_Get_<#=table#>]; &quot;</Variable>
                 </Variables>
                    <Tasks>
-                       <ExecuteSQL Name="Start Job Logging" ConnectionName="DWMgr" >
-                            <DirectInput>Execute [dbo].[usp_StartETLJob] @jobID = ? OUTPUT, @PackageName = ?, @SourceSystem = ?, @ServerEnvironment = ?;
+                       <ExecuteSQL Name="Start Job Logging" ConnectionName="DW_Log" >
+                            <DirectInput>
+                               Insert into [dbo].[ETLLog](LogTime, UserName,ETLStage, LogMessage, rowsAffected)
+                                Select getdate(), User,'DataVault','Start Executing ' + ? + ' Package',0;
                             </DirectInput>
                             <Parameters>
-                                <Parameter Name="0" DataType="Int64" VariableName="User.vJobId" Direction="Output"></Parameter>
-                                <Parameter Name="1" DataType="String" VariableName="System.PackageName" Direction="Input" ></Parameter>
-                                <Parameter Name="2" DataType="String" VariableName="User.vSourceSystem" Direction="Input" ></Parameter>
-                                <Parameter Name="3" DataType="String" VariableName="System.MachineName" Direction="Input" ></Parameter>
+                                <Parameter Name="0" DataType="String" VariableName="System.PackageName" Direction="Input" ></Parameter>
                             </Parameters>
                         </ExecuteSQL>
-                            <Container Name="IDS_<#=table#>_Tasks" ConstraintMode="Linear" >
+                            <Container Name="DataVault_<#=table#>_Tasks" ConstraintMode="Linear" >
                                 <PrecedenceConstraints>
                                     <Inputs>
                                         <Input OutputPathName="Start Job Logging.Output"></Input>
                                     </Inputs>
                                 </PrecedenceConstraints>
-                                <# string MetaDataConnectionString = @"Data Source=Server1;Initial Catalog=Meta;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;";#>
-                                <#DataTable  IDSTables = ExternalDataAccess.GetDataTable(MetaDataConnectionString, 
-                                "SELECT distinct [DestSchemaName] , [DestTableName], [SourceTableName] FROM [SourceToTargetMapping] WHERE  [SourceTableName] = '"+table+"';"); #>
+                                <# string MetaDataConnectionString = @"Data Source=C240-FSKMHR2\SQL2016;Initial Catalog=DataModel;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;";#>
+                                <#DataTable  DataVaultTables = ExternalDataAccess.GetDataTable(MetaDataConnectionString, 
+                                "SELECT distinct [DestSchemaName] , [DestTableName], [SourceTableName] FROM [SourceToTarget] WHERE  [SourceTableName] = '"+table+"';"); #>
                                 
                                 <Variables>
-                                <# foreach (DataRow row in IDSTables.Rows) {#>
-                                        <Variable Name="PreCount<#=row[0]#>_<#=row[1]#>" DataType="Int64" >0</Variable>
-                                        <Variable Name="PostCount<#=row[0]#>_<#=row[1]#>" DataType="Int64" >0</Variable>
-                                        <#if (row[0].ToString() == "SAT") {#>
-                                            <Variable Name="EndDate<#=row[0]#>_<#=row[1]#>" DataType="Int64" >0</Variable>
-                                        <# } #>
+                                <# foreach (DataRow row in DataVaultTables.Rows) {#>
+                                        <Variable Name="PreLoadCount<#=row[0]#>_<#=row[1]#>" DataType="Int64" >0</Variable>
+                                        <Variable Name="PostLoadCount<#=row[0]#>_<#=row[1]#>" DataType="Int64" >0</Variable>
                                 <# } #>    
                                  </Variables>        
                                     
                                     <Tasks>
-                                        <# foreach (DataRow row in IDSTables.Rows) {#>
-                                        <ExecuteSQL Name="GetPreCounts for <#=row[0]#>_<#=row[1]#>" ConnectionName="IDS" ResultSet="SingleRow" >
+                                        <# foreach (DataRow row in DataVaultTables.Rows) {#>
+                                        <ExecuteSQL Name="GetPreLoadCounts for <#=row[0]#>_<#=row[1]#>" ConnectionName="DataVault" ResultSet="SingleRow" >
                                             <DirectInput>
                                                 SELECT COUNT(*) as PC from [<#=row[0]#>].[<#=row[1]#>] (NOLOCK);
                                             </DirectInput>
                                                 <Results>
-                                                    <Result Name="0" VariableName="User.PreCount<#=row[0]#>_<#=row[1]#>" ></Result> 
+                                                    <Result Name="0" VariableName="User.PreLoadCount<#=row[0]#>_<#=row[1]#>" ></Result> 
                                                 </Results>
                                         </ExecuteSQL>
                                         <# } #>
-                                            <Dataflow Name="Get Data From Stage by JobId" >
+                                            <Dataflow Name="Get Data From Stage" >
                                                 <Transformations>
                                                     <OleDbSource Name="Get Records from <#=table#>" ConnectionName="Stage"  >
                                                         <VariableInput VariableName="User.vSelectSQL" ></VariableInput>
                                                     </OleDbSource>
                                                         <Multicast Name="Multicast Transformation">
                                                             <OutputPaths>
-                                                                <# foreach (DataRow row in IDSTables.Rows) {#>
+                                                                <# foreach (DataRow row in DataVaultTables.Rows) {#>
                                                                 <OutputPath Name="MultOut<#=row[0]#>_<#=row[1]#>"  />
                                                                 <#}#>
                                                             </OutputPaths>
                                                         </Multicast>
-                                                            <# foreach (DataRow row in IDSTables.Rows) {#>
-                                                                <Lookup Name="Lookup <#=row[0]#>_<#=row[1]#>" OleDbConnectionName="IDS" NoMatchBehavior="RedirectRowsToNoMatchOutput" >
+                                                            <# foreach (DataRow row in DataVaultTables.Rows) {#>
+                                                                <Lookup Name="Lookup <#=row[0]#>_<#=row[1]#>" OleDbConnectionName="DataVault" NoMatchBehavior="RedirectRowsToNoMatchOutput" >
                                                                     <InputPath OutputPathName="Multicast Transformation.MultOut<#=row[0]#>_<#=row[1]#>" ></InputPath>
                                                                     <DirectInput>EXEC LOOKUP.usp_Get_<#=row[0]#>_<#=row[1]#>;</DirectInput>
-                                                                        <#string metadatConnectionString = @"Data Source=Server3;Initial Catalog=IDSDB;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;"; #>
+                                                                        <#string metadatConnectionString = @"Data Source=C240-FSKMHR2\SQL2016;Initial Catalog=ETL_DataVault;Provider=SQLNCLI11.1;Integrated Security=SSPI;Persist Security Info=False;"; #>
                                                                         <#DataTable LookupSource = ExternalDataAccess.GetDataTable(metadatConnectionString,"EXEC LOOKUP.usp_Get_" + row[0] + "_" + row[1] + "; ");#>
                                                                             <Inputs>
                                                                                 <# foreach (var icol in LookupSource.Columns){ #>
@@ -93,75 +86,58 @@
                                                                             <Outputs>
                                                                             </Outputs>
                                                                 </Lookup>
-                                                                <OleDbDestination Name="Load <#=row[0]#>_<#=row[1]#>" ConnectionName="IDS">
+                                                                <OleDbDestination Name="Load <#=row[0]#>_<#=row[1]#>" ConnectionName="DataVault">
                                                                     <InputPath OutputPathName="Lookup <#=row[0]#>_<#=row[1]#>.NoMatch" ></InputPath>
                                                                     <ExternalTableOutput Table="[<#=row[0]#>].[<#=row[1]#>]" ></ExternalTableOutput>    
                                                                 </OleDbDestination> 
                                                             <#}#>    
                                                 </Transformations>
                                             </Dataflow>
-                                            <# foreach (DataRow row in IDSTables.Rows) {#>
-                                                <ExecuteSQL Name="GetPostCounts for <#=row[0]#>_<#=row[1]#>" ConnectionName="IDS" ResultSet="SingleRow">
+                                            <# foreach (DataRow row in DataVaultTables.Rows) {#>
+                                                <ExecuteSQL Name="GetPostLoadCounts for <#=row[0]#>_<#=row[1]#>" ConnectionName="DataVault" ResultSet="SingleRow">
                                                     <DirectInput>
                                                         SELECT COUNT(*) as PC from [<#=row[0]#>].[<#=row[1]#>] (NOLOCK);
                                                     </DirectInput>
                                                         <Results>
-                                                            <Result Name="0" VariableName="User.PostCount<#=row[0]#>_<#=row[1]#>" ></Result> 
+                                                            <Result Name="0" VariableName="User.PostLoadCount<#=row[0]#>_<#=row[1]#>" ></Result> 
                                                         </Results>
                                                 </ExecuteSQL>
-                                                <ExecuteSQL Name="Log Inserts to <#=row[0]#>_<#=row[1]#>" ConnectionName="DWMgr" >
+                                                 <ExecuteSQL Name="Log ETL Load to <#=row[0]#>_<#=row[1]#>" ConnectionName="DW_Log" >
                                                     <DirectInput>
-                                                         Insert into [dbo].[ETLStatistics](Actions, JobID, Items)
-                                                         Select 'Insert into [<#=row[0]#>].[<#=row[1]#>]',?,(?-?);
+                                                         Insert into [dbo].[ETLLog](LogTime, UserName,ETLStage, LogMessage, rowsAffected)
+                                                         Select getdate(), User,'DataVault','Insert into [<#=row[0]#>].[<#=row[1]#>]',(?-?);
                                                     </DirectInput>
                                                         <Parameters>
-                                                            <Parameter Name="0" DataType="Int32" VariableName="User.vJobId" Direction="Input" ></Parameter>
-                                                            <Parameter Name="1" DataType="Int64" VariableName="User.PostCount<#=row[0]#>_<#=row[1]#>" Direction="Input" ></Parameter>
-                                                            <Parameter Name="2" DataType="Int64" VariableName="User.PreCount<#=row[0]#>_<#=row[1]#>" Direction="Input" ></Parameter>            
+                                                            <Parameter Name="0" DataType="Int64" VariableName="User.PostLoadCount<#=row[0]#>_<#=row[1]#>" Direction="Input" ></Parameter>
+                                                            <Parameter Name="1" DataType="Int64" VariableName="User.PreLoadCount<#=row[0]#>_<#=row[1]#>" Direction="Input" ></Parameter>            
                                                         </Parameters>
                                                 </ExecuteSQL>
-                                                     <#if (row[0].ToString() == "SAT") {#>
-                                                        <ExecuteSQL Name="End Date <#=row[0]#>_<#=row[1]#>" ConnectionName="IDS" >
-                                                            <DirectInput>EXEC [SAT].[usp_EndDate<#=row[1]#>]  @EndDatedCount = ? OUTPUT ;</DirectInput>
-                                                            <Parameters>
-                                                              <Parameter Name="0" DataType="Int64" VariableName="User.EndDate<#=row[0]#>_<#=row[1]#>" Direction="Output" ></Parameter>
-                                                          </Parameters>    
-                                                        </ExecuteSQL>
-                                                        <ExecuteSQL Name="Log EndDated Records in <#=row[0]#>_<#=row[1]#>" ConnectionName="DWMgr" >
-                                                            <DirectInput>
-                                                                 Insert into [dbo].[ETLStatistics](Actions, Items, JobID)
-                                                                 Select 'End-dated records in <#=row[0]#>_<#=row[1]#>',?,?;
-                                                            </DirectInput>
-                                                                <Parameters>
-                                                                    <Parameter Name="0" DataType="Int64" VariableName="User.EndDate<#=row[0]#>_<#=row[1]#>" Direction="Input" ></Parameter>
-                                                                    <Parameter Name="1" DataType="Int32" VariableName="User.vJobId" Direction="Input" ></Parameter>    
-                                                                </Parameters>
-                                                        </ExecuteSQL>
-                                                    <#}#>
-                                             <# } #>
+                                            <#}#>
                                     </Tasks>
                             </Container>
-                           <ExecuteSQL Name="Log Job Completion" ConnectionName="DWMgr" >
+                           <ExecuteSQL Name="Log Job Completion" ConnectionName="DW_Log" >
                               <PrecedenceConstraints>
                                   <Inputs>
-                                      <Input EvaluationOperation="Constraint" EvaluationValue="Success" OutputPathName="IDS_<#=table#>_Tasks.Output"></Input>
+                                      <Input EvaluationOperation="Constraint" EvaluationValue="Success" OutputPathName="DataVault_<#=table#>_Tasks.Output" ></Input>
                                   </Inputs>
                               </PrecedenceConstraints>
                               <DirectInput>
-                                  EXECUTE [dbo].[usp_EndETLJob] ?, 'Success';
-                              </DirectInput>
-                              <Parameters>
-                                  <Parameter Name="0" DataType="Int32" VariableName="User.vJobId" Direction="Input" ></Parameter>
-                              </Parameters>             
+                              Insert into [dbo].[ETLLog](LogTime, UserName,ETLStage, LogMessage, rowsAffected)
+                                    Select getdate(), User,'DataVault',? + ' Package Executed Successfully',0;
+                          </DirectInput>
+                          <Parameters>
+                              <Parameter Name="0" DataType="String" VariableName="System.PackageName" Direction="Input" ></Parameter>
+                          </Parameters>        
                           </ExecuteSQL>    
-                          <ExecuteSQL Name="Log Job Fail" ConnectionName="DWMgr" >
+                          <ExecuteSQL Name="Log Job Fail" ConnectionName="DW_Log" >
                               <PrecedenceConstraints>
                                   <Inputs>
-                                      <Input EvaluationOperation="Constraint" EvaluationValue="Failure" OutputPathName="IDS_<#=table#>_Tasks.Output" ></Input>
+                                      <Input EvaluationOperation="Constraint" EvaluationValue="Failure" OutputPathName="DataVault_<#=table#>_Tasks.Output" ></Input>
                                   </Inputs>
                               </PrecedenceConstraints>
                               <DirectInput>
-                                  EXECUTE [dbo].[usp_EndETLJob] ?,'Fail';
+                                   Insert into [dbo].[ErrorLog](ErrorTime, UserName, ErrorNumber, ErrorSeverity, ErrorState, ErrorProcedure, ErrorLine, ErrorMessage)
+                                    Select getdate(), User , 1,null,null,null,null, 'error message goes here';
                               </DirectInput>      
                               <Parameters>
                                   <Parameter Name="0" DataType="Int64" VariableName="User.vJobId" Direction="Input" ></Parameter>
@@ -169,6 +145,6 @@
                           </ExecuteSQL>     
                    </Tasks>
             </Package>
-        <# } #>
-        </Packages>         
+    </Packages>
+     <#}#> 
 </Biml>
